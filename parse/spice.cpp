@@ -296,7 +296,7 @@ READ_STATE Spice::ReadSubckt()
 READ_STATE Spice::ReadM()
 {
     DEVICE_NAME name = std::move(_nextToken);
-    std::shared_ptr<Wire> drain, gate, source, bulk;
+    std::shared_ptr<Net> drain, gate, source, bulk;
 
     if (!SkipToNextToken()) {
         return READ_MOSFET_ERROR;

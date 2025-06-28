@@ -23,7 +23,7 @@ void CompareCell::LoadData() {
         wireElement->_connectDeviceElements.emplace_back(deviceElement, pinMagic);
     };
     std::unordered_map<std::shared_ptr<Device>, std::shared_ptr<DeviceElement>> _devicesMap;
-    auto LoadDevices = [=](const std::shared_ptr<Cell>& cell) {
+    auto LoadDevices = [&Connect, this](const std::shared_ptr<Cell>& cell) {
         const NETLIST_ID& id = cell->GetNetlist()->GetID();
         for (const auto& it : cell->GetDevices()) {
             const std::shared_ptr<Device>& device = it.second;
@@ -31,7 +31,7 @@ void CompareCell::LoadData() {
             _deviceElements.emplace_back(deviceElement);
             // _deviceMap.emplace(device, deviceElement);
             for (const auto& itWire : device->GetConnectWires()) {
-                const std::shared_ptr<Wire>& wire = itWire.first;
+                const std::shared_ptr<Net>& wire = itWire.first;
                 const PIN_MAGIC pinMagic = itWire.second;
                 const std::shared_ptr<WireElement>& wireElement = _wires[wire];
                 Connect(deviceElement, wireElement, pinMagic);
@@ -41,7 +41,7 @@ void CompareCell::LoadData() {
     auto LoadWires = [this](const std::shared_ptr<Cell>& cell) {
         const NETLIST_ID& id = cell->GetNetlist()->GetID();
         for (const auto& it : cell->GetWires()) {
-            const std::shared_ptr<Wire>& wire = it.second;
+            const std::shared_ptr<Net>& wire = it.second;
             const std::shared_ptr<WireElement>& wireElement = std::make_shared<WireElement>(wire, id);
             _wires.emplace(wire, wireElement);
         }
@@ -84,9 +84,10 @@ COMPARE_CELL_RESULT CompareCell::Compare() {
 bool CompareCell::AssignInitialBuckets() {
     auto BuildInitialDeviceColor = [](const std::shared_ptr<Device>& device) -> HASH_VALUE {
         std::hash<DEVICE_MODEL_NAME> DeviceModelHash; // set hash by deviceType and model name, might hash conflict, is better use uuid
-        return (device->GetDeviceType() ^ DeviceModelHash(device->GetModel())) % HASH_MOD_1;
+        // return (device->GetDeviceType() ^ DeviceModelHash(device->GetModel())) % HASH_MOD_1;
+        return (device->GetDeviceType() ^ DeviceModelHash(device->GetModel()));
     };
-    auto BuildInitialWireColor = [](const std::shared_ptr<Wire>& wire) -> HASH_VALUE {
+    auto BuildInitialWireColor = [](const std::shared_ptr<Net>& wire) -> HASH_VALUE {
         if (wire->GetPortIndex() == NOT_PORT) {
             return 999999 - (wire->GetConnectDevices()).size() * 2; // set hash by degree, is better use uuid prime number.
         } else {
@@ -97,7 +98,7 @@ bool CompareCell::AssignInitialBuckets() {
         deviceElement->newColor = BuildInitialDeviceColor(deviceElement->device);
     }
     for (const auto& it : _wires) {
-        const std::shared_ptr<Wire>& wire = it.first;
+        const std::shared_ptr<Net>& wire = it.first;
         const std::shared_ptr<WireElement>& wireElement = it.second;
         wireElement->newColor = BuildInitialWireColor(wire);
     }
@@ -234,8 +235,9 @@ HASH_VALUE CompareCell::GetDeviceNewColor(const std::shared_ptr<DeviceElement>& 
     for (const auto& it : deviceElement->_connectWireElements) {
         const std::shared_ptr<WireElement>& wireElement = it.first; // is better use unique_ptr point to here rather than unordered_map
         const PIN_MAGIC pinMagic = it.second;
-        result += wireElement->oldColor * pinMagic % HASH_MOD_1; // customized hash function, is better to use more than 1 mod to avoid hash conflict.but here use only 1 mod.
-        result %= HASH_MOD_1;
+        result += wireElement->oldColor * pinMagic;
+        // result += wireElement->oldColor * pinMagic % HASH_MOD_1; // customized hash function, is better to use more than 1 mod to avoid hash conflict.but here use only 1 mod.
+        // result %= HASH_MOD_1;
     }
     return result;
 }
@@ -245,8 +247,9 @@ HASH_VALUE CompareCell::GetWireNewColor(const std::shared_ptr<WireElement>& wire
     for (const auto& it : wireElement->_connectDeviceElements) {
         const std::shared_ptr<DeviceElement>& deviceElement = it.first.lock();
         const PIN_MAGIC pinMagic = it.second;
-        result += deviceElement->oldColor * pinMagic % HASH_MOD_1;
-        result %= HASH_MOD_1;
+        result += deviceElement->oldColor * pinMagic;
+        // result += deviceElement->oldColor * pinMagic % HASH_MOD_1;
+        // result %= HASH_MOD_1;
     }
     return result;
 }
@@ -347,20 +350,21 @@ AUTOMORPHISM_GROUPS CompareCell::WireBucketCheck(WireBucket& bucket) {
 
 COMPARE_CELL_RESULT CompareCell::ResolveAutomorphism() {
     AUTOMORPHISM_GROUPS result = 1;
-    // ResolveAutomorphismByProperty();
-    // result = WeisfeilerLehman();
-    // if (result == ITERATE_RESULT_FALSE) {
-    // return COMPARE_CELL_FALSE;
-    // }
-    // else if (result == ITERATE_RIGHT_END) {
-    // return COMPARE_CELL_TRUE;
-    // }
-    // result = WeisfeilerLehman();
-    // if (result == ITERATE_RESULT_FALSE) {
-    // return COMPARE_CELL_FALSE;
-    // } else if (result == ITERATE_RIGHT_END) {
-    // return COMPARE_CELL_TRUE;
-    // }
+    ResolveAutomorphismByProperty();
+    result = WeisfeilerLehman();
+    if (result == ITERATE_RESULT_FALSE) {
+        return COMPARE_CELL_FALSE;
+    } else if (result == ITERATE_RIGHT_END) {
+        return COMPARE_CELL_TRUE;
+    }
+
+    ResolveAutomorphismByPin();
+    result = WeisfeilerLehman();
+    if (result == ITERATE_RESULT_FALSE) {
+        return COMPARE_CELL_FALSE;
+    } else if (result == ITERATE_RIGHT_END) {
+        return COMPARE_CELL_TRUE;
+    }
 
     while (result > 0) {
         ResolveAutomorphismForce();
@@ -372,14 +376,64 @@ COMPARE_CELL_RESULT CompareCell::ResolveAutomorphism() {
     return COMPARE_CELL_FALSE;
 }
 
-AUTOMORPHISM_GROUPS ResolveAutomorphismByProperty() {
+void CompareCell::ResolveAutomorphismByProperty() {
+    for (const DeviceBucket* bucket: _automorphismDeviceBuckets) { // 遍历每个桶
+        HASH_VALUE originColor = bucket->newColor; // 该桶本身的color
+        for (auto it1 = bucket->graphNodes.begin(); it1 != bucket->graphNodes.end(); ++it1) {
+            const std::shared_ptr<DeviceElement>& deviceElement1 = *it1;
+            if (deviceElement1->newColor != originColor) {
+                continue;
+            }
+            HASH_VALUE resetColor = Rand(); // 需要重置成的新color
+            deviceElement1->newColor = resetColor;
+            uint32_t id1 = 1, id2 = 0;
+            const NETLIST_ID netlistId1 =  deviceElement1->netlistId;
+            for (auto it2 = std::next(it1); it2 != bucket->graphNodes.end(); ++it2) {
+                const std::shared_ptr<DeviceElement>& deviceElement2 = *it2;
+                if (deviceElement2->newColor != originColor) {
+                    continue;
+                }
+                if (deviceElement1->device->PropertyCompare(deviceElement2->device)) { // property same
+                    deviceElement2->newColor = resetColor;
+                    const NETLIST_ID netlistId2 = deviceElement2->netlistId;
+                    netlistId1 == netlistId2? ++id1: ++id2;
+                }
+            }
+
+            while (id2 > id1) {
+                for (auto it2 = bucket->graphNodes.begin(); it2 != bucket->graphNodes.end(); ++it2) {
+                    const std::shared_ptr<DeviceElement>& deviceElement2 = *it2;
+                    if (deviceElement2->newColor == resetColor && deviceElement2->netlistId != netlistId1) {
+                        deviceElement2->newColor = originColor;
+                        if (-- id2 == id1) {
+                            break;
+                        }
+                    }
+                }
+            }
+
+            while (id1 > id2) {
+                for (auto it2 = bucket->graphNodes.begin(); it2 != bucket->graphNodes.end(); ++it2) {
+                    const std::shared_ptr<DeviceElement>& deviceElement2 = *it2;
+                    if (deviceElement2->newColor == resetColor && deviceElement2->netlistId == netlistId1) {
+                        deviceElement2->newColor = originColor;
+                        if (-- id1 == id2) {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    AssignBuckets();
 }
 
-AUTOMORPHISM_GROUPS ResolveAutomorphismByPin() {
+void CompareCell::ResolveAutomorphismByPin() {
 
+    AssignBuckets();
 }
 
-AUTOMORPHISM_GROUPS CompareCell::ResolveAutomorphismForce() {
+void CompareCell::ResolveAutomorphismForce() {
     DeviceBucket* dPrivileged = nullptr;
     for (DeviceBucket* bucket : _automorphismDeviceBuckets) {
         if (dPrivileged == nullptr) {
@@ -406,7 +460,6 @@ AUTOMORPHISM_GROUPS CompareCell::ResolveAutomorphismForce() {
         ResetWireBucketColor(*wPrivileged);
     }
     AssignBuckets();
-    return 0;
 }
 
 void CompareCell::ResetDeviceBucketColor(DeviceBucket& bucket) {
@@ -428,7 +481,8 @@ void CompareCell::ResetDeviceBucketColor(DeviceBucket& bucket) {
             }
         }
     }
-    deviceElement1->newColor = deviceElement2->newColor = rand() % HASH_MOD_1;
+    deviceElement1->newColor = deviceElement2->newColor = rand();
+    // deviceElement1->newColor = deviceElement2->newColor = rand() % HASH_MOD_1;
 }
 
 void CompareCell::ResetWireBucketColor(WireBucket& bucket) {
@@ -450,5 +504,6 @@ void CompareCell::ResetWireBucketColor(WireBucket& bucket) {
             }
         }
     }
-    wireElement1->newColor = wireElement2->newColor = rand() % HASH_MOD_1;
+    wireElement1->newColor = wireElement2->newColor = rand();
+    // wireElement1->newColor = wireElement2->newColor = rand() % HASH_MOD_1;
 }

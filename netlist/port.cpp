@@ -4,11 +4,11 @@ Port::Port(const WIRE_NAME& name)
     : _name(name), _wire(nullptr) {
 }
 
-std::shared_ptr<Wire> Port::GetWire() const {
+std::shared_ptr<Net> Port::GetWire() const {
     return _wire;
 }
 
-void Port::SetWire(const std::shared_ptr<Wire>& wire) {
+void Port::SetWire(const std::shared_ptr<Net>& wire) {
     _wire = wire;
 }
 

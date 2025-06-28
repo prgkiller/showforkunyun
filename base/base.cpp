@@ -24,6 +24,11 @@ bool MatchNoCase(const std::string& str1, const std::string& str2) {
     return true;
 }
 
+HASH_VALUE Rand() {
+    srand(time(NULL));
+    return rand();
+}
+
 void SettingConfig(TestCase& testCase) {
     Config& config = Config::GetInstance();
     Debug& debug = Debug::GetInstance();

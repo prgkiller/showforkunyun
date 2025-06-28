@@ -3,7 +3,7 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include "../wire.h"
+#include "../net.h"
 #include "../../base/base.h"
 
 class Cell;
@@ -15,7 +15,7 @@ protected:
     DEVICE_MODEL_NAME _model;
     std::weak_ptr<Netlist> _netlist;
     std::weak_ptr<Cell> _cell;
-    std::vector<std::pair<std::shared_ptr<Wire>, PIN_MAGIC> > _connectWires;
+    std::vector<std::pair<std::shared_ptr<Net>, PIN_MAGIC> > _connectWires;
 
 public:
     Device() = default;
@@ -38,8 +38,8 @@ public:
     std::shared_ptr<Cell> GetCell() const;
     void SetCell(const std::shared_ptr<Cell>& cell);
 
-    std::vector<std::pair<std::shared_ptr<Wire>, PIN_MAGIC> >& GetConnectWires();
-    void AddConnectWire(const std::shared_ptr<Wire>& wire, const PIN_MAGIC& pinMagic);
+    std::vector<std::pair<std::shared_ptr<Net>, PIN_MAGIC> >& GetConnectWires();
+    void AddConnectWire(const std::shared_ptr<Net>& wire, const PIN_MAGIC& pinMagic);
 
     virtual void SetPropertyValue(const PROPERTY_NAME& propertyName, const std::string& expression,
         std::unordered_map<PARAMETER_NAME, std::variant<double, std::string>, StringCaseInsensitiveHash, StringCaseInsensitiveEqual>& localParam,

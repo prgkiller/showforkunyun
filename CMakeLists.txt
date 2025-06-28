@@ -12,8 +12,8 @@ add_executable(lvs lvs_main.cpp
         netlist/netlist.h
         netlist/device/device.cpp
         netlist/device/device.h
-        netlist/wire.cpp
-        netlist/wire.h
+        netlist/net.cpp
+        netlist/net.h
         netlist/device/quote.cpp
         netlist/device/quote.h
         netlist/device/mosfet.cpp

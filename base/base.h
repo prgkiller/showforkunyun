@@ -137,4 +137,5 @@ static TestCase testCase[] = {
     }
 };
 
+HASH_VALUE Rand();
 void SettingConfig(TestCase& testCase);

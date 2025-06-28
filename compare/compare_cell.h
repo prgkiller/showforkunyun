@@ -48,9 +48,9 @@ class CompareCell {
             }
         };
         struct WireElement: public GraphNode {
-            std::shared_ptr<Wire> wire;
+            std::shared_ptr<Net> wire;
             std::vector<std::pair<std::weak_ptr<DeviceElement>, PIN_MAGIC> > _connectDeviceElements;
-            WireElement(const std::shared_ptr<Wire>& wire_, const NETLIST_ID& id_): wire(wire_) {
+            WireElement(const std::shared_ptr<Net>& wire_, const NETLIST_ID& id_): wire(wire_) {
                 name = wire_->GetName();
                 oldColor = 0;
                 newColor = 0;
@@ -81,9 +81,7 @@ class CompareCell {
     private:
         std::shared_ptr<Cell> _cell1{nullptr}, _cell2{nullptr};
         std::vector<std::shared_ptr<DeviceElement> > _deviceElements;
-        // std::vector<std::shared_ptr<WireElement> > _wires;
-        // std::unordered_map<std::shared_ptr<Device>, std::shared_ptr<DeviceElement> > _devices;
-        std::unordered_map<std::shared_ptr<Wire>, std::shared_ptr<WireElement> > _wires;
+        std::unordered_map<std::shared_ptr<Net>, std::shared_ptr<WireElement> > _wires;
         uint8_t _lastBucketsId{1}; // which buckets is the final iterate step
         std::unordered_map<std::shared_ptr<DeviceElement>, DeviceBucket, DeviceElementHash, DeviceElementEqual> _deviceBuckets[2];
         std::unordered_map<std::shared_ptr<WireElement>, WireBucket, WireElementHash, WireElementEqual> _wireBuckets[2];
@@ -119,9 +117,9 @@ class CompareCell {
 
         // automorphism
         COMPARE_CELL_RESULT ResolveAutomorphism();
-        AUTOMORPHISM_GROUPS ResolveAutomorphismByProperty();
-        AUTOMORPHISM_GROUPS ResolveAutomorphismByPin();
-        AUTOMORPHISM_GROUPS ResolveAutomorphismForce();
+        void ResolveAutomorphismByProperty();
+        void ResolveAutomorphismByPin();
+        void ResolveAutomorphismForce();
         void ResetDeviceBucketColor(DeviceBucket& bucket);
         void ResetWireBucketColor(WireBucket& bucket);
     public:

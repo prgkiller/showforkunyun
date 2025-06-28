@@ -9,7 +9,7 @@ class Cell;
 class Netlist;
 class Device;
 
-class Wire {
+class Net {
 private:
     WIRE_NAME _name;
     std::weak_ptr<Cell> _cell;
@@ -18,9 +18,9 @@ private:
     PORT_INDEX _portIndex = NOT_PORT;
     std::list<std::pair<std::weak_ptr<Device>, PIN_MAGIC> > _connectDevices;
 public:
-    Wire(const WIRE_NAME& name);
-    Wire(const Wire&) = delete;
-    Wire& operator=(const Wire&) = delete;
+    Net(const WIRE_NAME& name);
+    Net(const Net&) = delete;
+    Net& operator=(const Net&) = delete;
 
     WIRE_NAME GetName() const;
 

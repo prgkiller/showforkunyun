@@ -29,7 +29,7 @@ std::unordered_map<DEVICE_NAME, std::shared_ptr<Device>, StringCaseInsensitiveHa
     return _devices;
 }
 
-std::unordered_map<WIRE_NAME, std::shared_ptr<Wire>, StringCaseInsensitiveHash, StringCaseInsensitiveEqual>& Cell::GetWires() {
+std::unordered_map<WIRE_NAME, std::shared_ptr<Net>, StringCaseInsensitiveHash, StringCaseInsensitiveEqual>& Cell::GetWires() {
     return _wires;
 }
 
@@ -45,7 +45,7 @@ std::shared_ptr<Device> Cell::FindDevice(const DEVICE_NAME& name) const {
     return it->second;
 }
 
-std::shared_ptr<Wire> Cell::FindWire(const WIRE_NAME& name) const {
+std::shared_ptr<Net> Cell::FindWire(const WIRE_NAME& name) const {
     const auto& it = _wires.find(name);
     if (it == _wires.end()) {
         return nullptr;
@@ -63,14 +63,14 @@ bool Cell::AddDevice(const std::shared_ptr<Device>& device) {
     return true;
 }
 
-std::shared_ptr<Wire> Cell::DefineWire(const WIRE_NAME& wireName) {
+std::shared_ptr<Net> Cell::DefineWire(const WIRE_NAME& wireName) {
     // 如果未定义则新建，已定义则返回已有实例
     const auto& it = _wires.find(wireName);
     if (it != _wires.end()) {
         return it->second;
     }
 
-    const std::shared_ptr<Wire>& wire = std::make_shared<Wire>(wireName);
+    const std::shared_ptr<Net>& wire = std::make_shared<Net>(wireName);
     wire->SetCell(shared_from_this());
     wire->SetNetlist(_netlist.lock());
     _wires[wireName] = wire;
@@ -107,7 +107,7 @@ void Cell::Show() {
 
         if (device->GetDeviceType() != DEVICE_TYPE_QUOTE) {
             for (const auto& it2 : device->GetConnectWires()) {
-                const std::shared_ptr<Wire>& wire = it2.first;
+                const std::shared_ptr<Net>& wire = it2.first;
                 const PIN_MAGIC pinMagic = it2.second;
                 std::cout << " " << wire->GetName() << "(" << GetPinName(pinMagic) << ")";
             }
@@ -125,7 +125,7 @@ void Cell::Show() {
             std::cout << std::endl;
         } else {
             const std::shared_ptr<Quote>& quote = std::dynamic_pointer_cast<Quote>(device);
-            for (const std::shared_ptr<Wire>& wire : quote->_pendingWires) {
+            for (const std::shared_ptr<Net>& wire : quote->_pendingWires) {
                 std::cout << " " << wire->GetName();
             }
             std::cout << " [quote(" << quote->GetQuoteCell()->GetName() << ")]" << std::endl;
@@ -133,7 +133,7 @@ void Cell::Show() {
     }
 
     for (const auto& it : GetWires()) {
-        const std::shared_ptr<Wire>& wire = it.second;
+        const std::shared_ptr<Net>& wire = it.second;
         std::cout << wire->GetName() << ":";
 
         for (const auto& it2 : wire->GetConnectDevices()) {
