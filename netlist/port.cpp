@@ -1,15 +1,15 @@
 #include "port.h"
 
 Port::Port(const WIRE_NAME& name)
-    : _name(name), _wire(nullptr) {
+    : _name(name), _net(nullptr) {
 }
 
-std::shared_ptr<Net> Port::GetWire() const {
-    return _wire;
+std::shared_ptr<Net> Port::GetNet() const {
+    return _net;
 }
 
-void Port::SetWire(const std::shared_ptr<Net>& wire) {
-    _wire = wire;
+void Port::SetNet(const std::shared_ptr<Net>& net) {
+    _net = net;
 }
 
 HASH_VALUE Port::GetLabel() const {

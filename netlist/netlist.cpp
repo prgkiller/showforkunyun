@@ -23,11 +23,11 @@ READ_STATE Netlist::QuotePointToCell(const std::shared_ptr<Cell>& cell) {
         for (const std::string& token : quote->_tokens) {
             const std::shared_ptr<Cell>& finCell = FindCell(token);
             if (finCell == nullptr) {
-                const std::shared_ptr<Net>& wire = cell->DefineWire(token);
-                quote->_pendingWires.push_back(wire);
+                const std::shared_ptr<Net>& net = cell->DefineNet(token);
+                quote->_pendingNets.push_back(net);
             } else {
                 quoteFindCell = true;
-                if (finCell->GetPorts().size() != quote->_pendingWires.size()) {
+                if (finCell->GetPorts().size() != quote->_pendingNets.size()) {
                     return QUOTE_PORT_NUMBER_ERROR;
                 }
                 quote->SetQuoteCell(finCell);
@@ -150,25 +150,25 @@ void Netlist::Show() {
             std::cout << device->GetName() << ":";
 
             if (device->GetDeviceType() != DEVICE_TYPE_QUOTE) {
-                for (const auto& it2 : device->GetConnectWires()) {
-                    const std::shared_ptr<Net>& wire = it2.first;
+                for (const auto& it2 : device->GetConnectNets()) {
+                    const std::shared_ptr<Net>& net = it2.first;
                     const PIN_MAGIC pinMagic = it2.second;
-                    std::cout << " " << wire->GetName() << "(" << GetPinName(pinMagic) << ")";
+                    std::cout << " " << net->GetName() << "(" << GetPinName(pinMagic) << ")";
                 }
                 std::cout << std::endl;
             } else {
                 const std::shared_ptr<Quote> quote = std::dynamic_pointer_cast<Quote>(device);
-                for (const std::shared_ptr<Net>& wire : quote->_pendingWires) {
-                    std::cout << " " << wire->GetName();
+                for (const std::shared_ptr<Net>& net : quote->_pendingNets) {
+                    std::cout << " " << net->GetName();
                 }
                 std::cout << " [quote(" << quote->GetQuoteCell()->GetName() << ")]" << std::endl;
             }
         }
 
-        for (const auto& it : cell->GetWires()) {
-            const std::shared_ptr<Net>& wire = it.second;
-            std::cout << wire->GetName() << ":";
-            for (const auto& it2 : wire->GetConnectDevices()) {
+        for (const auto& it : cell->GetNets()) {
+            const std::shared_ptr<Net>& net = it.second;
+            std::cout << net->GetName() << ":";
+            for (const auto& it2 : net->GetConnectDevices()) {
                 const std::shared_ptr<Device>& device = it2.first.lock();
                 const PIN_MAGIC pinMagic = it2.second;
                 std::cout << " " << device->GetName() << "(" << GetPinName(pinMagic) << ")";

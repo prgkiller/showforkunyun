@@ -18,9 +18,9 @@ CompareCell::CompareCell(const std::shared_ptr<Cell>& cell1, const std::shared_p
 }
 
 void CompareCell::LoadData() {
-    auto Connect = [this](std::shared_ptr<DeviceElement> deviceElement, std::shared_ptr<WireElement> wireElement, PIN_MAGIC pinMagic) {
-        deviceElement->_connectWireElements.emplace_back(wireElement, pinMagic);
-        wireElement->_connectDeviceElements.emplace_back(deviceElement, pinMagic);
+    auto Connect = [this](std::shared_ptr<DeviceElement> deviceElement, std::shared_ptr<NetElement> netElement, PIN_MAGIC pinMagic) {
+        deviceElement->_connectNetElements.emplace_back(netElement, pinMagic);
+        netElement->_connectDeviceElements.emplace_back(deviceElement, pinMagic);
     };
     std::unordered_map<std::shared_ptr<Device>, std::shared_ptr<DeviceElement>> _devicesMap;
     auto LoadDevices = [&Connect, this](const std::shared_ptr<Cell>& cell) {
@@ -30,24 +30,24 @@ void CompareCell::LoadData() {
             const std::shared_ptr<DeviceElement>& deviceElement = std::make_shared<DeviceElement>(device, id);
             _deviceElements.emplace_back(deviceElement);
             // _deviceMap.emplace(device, deviceElement);
-            for (const auto& itWire : device->GetConnectWires()) {
-                const std::shared_ptr<Net>& wire = itWire.first;
-                const PIN_MAGIC pinMagic = itWire.second;
-                const std::shared_ptr<WireElement>& wireElement = _wires[wire];
-                Connect(deviceElement, wireElement, pinMagic);
+            for (const auto& itNet : device->GetConnectNets()) {
+                const std::shared_ptr<Net>& net = itNet.first;
+                const PIN_MAGIC pinMagic = itNet.second;
+                const std::shared_ptr<NetElement>& netElement = _nets[net];
+                Connect(deviceElement, netElement, pinMagic);
             }
         }
     };
-    auto LoadWires = [this](const std::shared_ptr<Cell>& cell) {
+    auto LoadNets = [this](const std::shared_ptr<Cell>& cell) {
         const NETLIST_ID& id = cell->GetNetlist()->GetID();
-        for (const auto& it : cell->GetWires()) {
-            const std::shared_ptr<Net>& wire = it.second;
-            const std::shared_ptr<WireElement>& wireElement = std::make_shared<WireElement>(wire, id);
-            _wires.emplace(wire, wireElement);
+        for (const auto& it : cell->GetNets()) {
+            const std::shared_ptr<Net>& net = it.second;
+            const std::shared_ptr<NetElement>& netElement = std::make_shared<NetElement>(net, id);
+            _nets.emplace(net, netElement);
         }
     };
-    _wires.reserve((_cell1->GetWires().size() + _cell2->GetWires().size()));
-    LoadWires(_cell1); LoadWires(_cell2);
+    _nets.reserve((_cell1->GetNets().size() + _cell2->GetNets().size()));
+    LoadNets(_cell1); LoadNets(_cell2);
     _deviceElements.reserve((_cell1->GetDevices().size() + _cell2->GetDevices().size()));
     LoadDevices(_cell1);
     LoadDevices(_cell2);
@@ -87,20 +87,20 @@ bool CompareCell::AssignInitialBuckets() {
         // return (device->GetDeviceType() ^ DeviceModelHash(device->GetModel())) % HASH_MOD_1;
         return (device->GetDeviceType() ^ DeviceModelHash(device->GetModel()));
     };
-    auto BuildInitialWireColor = [](const std::shared_ptr<Net>& wire) -> HASH_VALUE {
-        if (wire->GetPortIndex() == NOT_PORT) {
-            return 999999 - (wire->GetConnectDevices()).size() * 2; // set hash by degree, is better use uuid prime number.
+    auto BuildInitialNetColor = [](const std::shared_ptr<Net>& net) -> HASH_VALUE {
+        if (net->GetPortIndex() == NOT_PORT) {
+            return 999999 - (net->GetConnectDevices()).size() * 2; // set hash by degree, is better use uuid prime number.
         } else {
-            return 5000000 - (wire->GetConnectDevices()).size() * 2; // set hash by degree, is better use uuid prime number.
+            return 5000000 - (net->GetConnectDevices()).size() * 2; // set hash by degree, is better use uuid prime number.
         }
     };
     for (const std::shared_ptr<DeviceElement>& deviceElement : _deviceElements) {
         deviceElement->newColor = BuildInitialDeviceColor(deviceElement->device);
     }
-    for (const auto& it : _wires) {
-        const std::shared_ptr<Net>& wire = it.first;
-        const std::shared_ptr<WireElement>& wireElement = it.second;
-        wireElement->newColor = BuildInitialWireColor(wire);
+    for (const auto& it : _nets) {
+        const std::shared_ptr<Net>& net = it.first;
+        const std::shared_ptr<NetElement>& netElement = it.second;
+        netElement->newColor = BuildInitialNetColor(net);
     }
     _lastBucketsId = 1;
     if (Debug::GetInstance().iterateShow) {
@@ -130,7 +130,7 @@ AUTOMORPHISM_GROUPS CompareCell::WeisfeilerLehman() {
 
 ITERATE_STATUS CompareCell::Iterate() {
     uint32_t oldDeviceBucketsNum = _deviceBuckets[_lastBucketsId].size();
-    uint32_t oldWireBucketsNum = _wireBuckets[_lastBucketsId].size();
+    uint32_t oldNetBucketsNum = _netBuckets[_lastBucketsId].size();
     // debug
     // std::cout << "Before Iterate, lastBucketId is " << static_cast<int16_t>(_lastBucketsId) << std::endl;
     IterateColor();
@@ -141,7 +141,7 @@ ITERATE_STATUS CompareCell::Iterate() {
     if (automorphisms == ITERATE_RESULT_FALSE) {
         return ITERATE_RESULT_FALSE;
     }
-    if (_deviceBuckets[_lastBucketsId].size() == oldDeviceBucketsNum && _wireBuckets[_lastBucketsId].size() == oldWireBucketsNum) {
+    if (_deviceBuckets[_lastBucketsId].size() == oldDeviceBucketsNum && _netBuckets[_lastBucketsId].size() == oldNetBucketsNum) {
         return automorphisms;
     }
     return ITERATE_WILL_CONTINUE;
@@ -150,9 +150,9 @@ ITERATE_STATUS CompareCell::Iterate() {
 void CompareCell::AssignBuckets() {
     _lastBucketsId ^= 1;
     _deviceBuckets[_lastBucketsId].clear();
-    _wireBuckets[_lastBucketsId].clear();
+    _netBuckets[_lastBucketsId].clear();
     AssignDeviceBuckets();
-    AssignWireBuckets();
+    AssignNetBuckets();
 }
 
 void CompareCell::AssignDeviceBuckets() {
@@ -172,29 +172,29 @@ void CompareCell::AssignDeviceBuckets() {
     }
 }
 
-void CompareCell::AssignWireBuckets() {
-    for (const auto& itWire : _wires) {
-        const std::shared_ptr<WireElement>& wireElement = itWire.second;
-        const auto& it = _wireBuckets[_lastBucketsId].find(wireElement);
-        if (it == _wireBuckets[_lastBucketsId].end()) {
-            WireBucket newBucket;
-            newBucket.oldColor = wireElement->oldColor;
-            newBucket.newColor = wireElement->newColor;
-            newBucket.degree = wireElement->degree;
-            newBucket.graphNodes.emplace_back(wireElement);
-            _wireBuckets[_lastBucketsId].emplace(wireElement, newBucket);
+void CompareCell::AssignNetBuckets() {
+    for (const auto& itNet : _nets) {
+        const std::shared_ptr<NetElement>& netElement = itNet.second;
+        const auto& it = _netBuckets[_lastBucketsId].find(netElement);
+        if (it == _netBuckets[_lastBucketsId].end()) {
+            NetBucket newBucket;
+            newBucket.oldColor = netElement->oldColor;
+            newBucket.newColor = netElement->newColor;
+            newBucket.degree = netElement->degree;
+            newBucket.graphNodes.emplace_back(netElement);
+            _netBuckets[_lastBucketsId].emplace(netElement, newBucket);
         } else {
-            WireBucket& bucket = it->second;
-            bucket.graphNodes.emplace_back(wireElement);
+            NetBucket& bucket = it->second;
+            bucket.graphNodes.emplace_back(netElement);
         }
     }
 }
 
 void CompareCell::IterateColor() {
     AssignNewDeviceColorToOld();
-    AssignNewWireColorToOld();
+    AssignNewNetColorToOld();
     UpdateDevicesColor();
-    UpdateWiresColor();
+    UpdateNetsColor();
 }
 
 void CompareCell::AssignNewDeviceColorToOld() {
@@ -207,12 +207,12 @@ void CompareCell::AssignNewDeviceColorToOld() {
     }
 }
 
-void CompareCell::AssignNewWireColorToOld() {
-    std::unordered_map<std::shared_ptr<WireElement>, WireBucket, WireElementHash, WireElementEqual>& oldBuckets = _wireBuckets[_lastBucketsId];
+void CompareCell::AssignNewNetColorToOld() {
+    std::unordered_map<std::shared_ptr<NetElement>, NetBucket, NetElementHash, NetElementEqual>& oldBuckets = _netBuckets[_lastBucketsId];
     for (const auto& it : oldBuckets) {
-        const WireBucket& bucket = it.second;
-        for (const std::shared_ptr<WireElement>& wireElement : bucket.graphNodes) {
-            wireElement->oldColor = bucket.newColor;
+        const NetBucket& bucket = it.second;
+        for (const std::shared_ptr<NetElement>& netElement : bucket.graphNodes) {
+            netElement->oldColor = bucket.newColor;
         }
     }
 }
@@ -223,28 +223,28 @@ void CompareCell::UpdateDevicesColor() {
     }
 }
 
-void CompareCell::UpdateWiresColor() {
-    for (const auto& it : _wires) {
-        const std::shared_ptr<WireElement>& wireElement = it.second;
-        wireElement->newColor = GetWireNewColor(wireElement);
+void CompareCell::UpdateNetsColor() {
+    for (const auto& it : _nets) {
+        const std::shared_ptr<NetElement>& netElement = it.second;
+        netElement->newColor = GetNetNewColor(netElement);
     }
 }
 
 HASH_VALUE CompareCell::GetDeviceNewColor(const std::shared_ptr<DeviceElement>& deviceElement) {
     HASH_VALUE result = deviceElement->oldColor;
-    for (const auto& it : deviceElement->_connectWireElements) {
-        const std::shared_ptr<WireElement>& wireElement = it.first; // is better use unique_ptr point to here rather than unordered_map
+    for (const auto& it : deviceElement->_connectNetElements) {
+        const std::shared_ptr<NetElement>& netElement = it.first; // is better use unique_ptr point to here rather than unordered_map
         const PIN_MAGIC pinMagic = it.second;
-        result += wireElement->oldColor * pinMagic;
-        // result += wireElement->oldColor * pinMagic % HASH_MOD_1; // customized hash function, is better to use more than 1 mod to avoid hash conflict.but here use only 1 mod.
+        result += netElement->oldColor * pinMagic;
+        // result += netElement->oldColor * pinMagic % HASH_MOD_1; // customized hash function, is better to use more than 1 mod to avoid hash conflict.but here use only 1 mod.
         // result %= HASH_MOD_1;
     }
     return result;
 }
 
-HASH_VALUE CompareCell::GetWireNewColor(const std::shared_ptr<WireElement>& wireElement) {
-    HASH_VALUE result = wireElement->oldColor;
-    for (const auto& it : wireElement->_connectDeviceElements) {
+HASH_VALUE CompareCell::GetNetNewColor(const std::shared_ptr<NetElement>& netElement) {
+    HASH_VALUE result = netElement->oldColor;
+    for (const auto& it : netElement->_connectDeviceElements) {
         const std::shared_ptr<DeviceElement>& deviceElement = it.first.lock();
         const PIN_MAGIC pinMagic = it.second;
         result += deviceElement->oldColor * pinMagic;
@@ -258,10 +258,10 @@ AUTOMORPHISM_GROUPS CompareCell::BucketsCheck() {
     if (DeviceBucketsCheck(_deviceBuckets[_lastBucketsId]) == ITERATE_RESULT_FALSE) {
         return ITERATE_RESULT_FALSE;
     }
-    if (WireBucketsCheck(_wireBuckets[_lastBucketsId]) == ITERATE_RESULT_FALSE) {
+    if (NetBucketsCheck(_netBuckets[_lastBucketsId]) == ITERATE_RESULT_FALSE) {
         return ITERATE_RESULT_FALSE;
     }
-    return _automorphismDeviceBuckets.size() + _automorphismWireBuckets.size();
+    return _automorphismDeviceBuckets.size() + _automorphismNetBuckets.size();
 }
 
 AUTOMORPHISM_GROUPS CompareCell::DeviceBucketsCheck(std::unordered_map<std::shared_ptr<DeviceElement>,
@@ -281,21 +281,21 @@ AUTOMORPHISM_GROUPS CompareCell::DeviceBucketsCheck(std::unordered_map<std::shar
     return automorphisms == ITERATE_RESULT_FALSE ? ITERATE_RESULT_FALSE : _automorphismDeviceBuckets.size();
 }
 
-AUTOMORPHISM_GROUPS CompareCell::WireBucketsCheck(std::unordered_map<std::shared_ptr<WireElement>,
-                                                  WireBucket, WireElementHash, WireElementEqual>& buckets) {
-    _automorphismWireBuckets.clear();
+AUTOMORPHISM_GROUPS CompareCell::NetBucketsCheck(std::unordered_map<std::shared_ptr<NetElement>,
+                                                  NetBucket, NetElementHash, NetElementEqual>& buckets) {
+    _automorphismNetBuckets.clear();
     static const bool debug = Debug::GetInstance().iterateShow;
     AUTOMORPHISM_GROUPS automorphisms = 0;
     for (auto& itBucket : buckets) {
         auto& bucket = itBucket.second;
-        if (WireBucketCheck(bucket) == ITERATE_RESULT_FALSE) {
+        if (NetBucketCheck(bucket) == ITERATE_RESULT_FALSE) {
             if (!debug) {
                 return ITERATE_RESULT_FALSE;
             }
             automorphisms = ITERATE_RESULT_FALSE;
         }
     }
-    return automorphisms == ITERATE_RESULT_FALSE ? ITERATE_RESULT_FALSE : _automorphismWireBuckets.size();
+    return automorphisms == ITERATE_RESULT_FALSE ? ITERATE_RESULT_FALSE : _automorphismNetBuckets.size();
 }
 
 AUTOMORPHISM_GROUPS CompareCell::DeviceBucketCheck(DeviceBucket& bucket) {
@@ -323,17 +323,17 @@ AUTOMORPHISM_GROUPS CompareCell::DeviceBucketCheck(DeviceBucket& bucket) {
     return 1;
 }
 
-AUTOMORPHISM_GROUPS CompareCell::WireBucketCheck(WireBucket& bucket) {
+AUTOMORPHISM_GROUPS CompareCell::NetBucketCheck(NetBucket& bucket) {
     static const bool debug = Debug::GetInstance().iterateShow;
     if (debug) {
-        std::cout << "wire bucket {oldColor=" << bucket.oldColor << " newColor=" << bucket.newColor << "} :";
+        std::cout << "net bucket {oldColor=" << bucket.oldColor << " newColor=" << bucket.newColor << "} :";
     }
     uint32_t id1 = 0, id2 = 0;
-    for (const auto& wireElement : bucket.graphNodes) {
+    for (const auto& netElement : bucket.graphNodes) {
         if (debug) {
-            std::cout << ' ' << wireElement->name << "(" << static_cast<int16_t>(wireElement->netlistId) << ")";
+            std::cout << ' ' << netElement->name << "(" << static_cast<int16_t>(netElement->netlistId) << ")";
         }
-        wireElement->netlistId == NETLIST_1 ? ++id1 : ++id2;
+        netElement->netlistId == NETLIST_1 ? ++id1 : ++id2;
     }
     if (debug) {
         std::cout << std::endl;
@@ -344,7 +344,7 @@ AUTOMORPHISM_GROUPS CompareCell::WireBucketCheck(WireBucket& bucket) {
     if (id1 == 1) {
         return 0;
     }
-    _automorphismWireBuckets.emplace_back(&bucket);
+    _automorphismNetBuckets.emplace_back(&bucket);
     return 1;
 }
 
@@ -442,8 +442,8 @@ void CompareCell::ResolveAutomorphismForce() {
             dPrivileged = bucket;
         }
     }
-    WireBucket* wPrivileged = nullptr;
-    for (WireBucket* bucket : _automorphismWireBuckets) {
+    NetBucket* wPrivileged = nullptr;
+    for (NetBucket* bucket : _automorphismNetBuckets) {
         if (wPrivileged == nullptr) {
             wPrivileged = bucket;
         } else if (*bucket > *wPrivileged) {
@@ -453,11 +453,11 @@ void CompareCell::ResolveAutomorphismForce() {
     if (wPrivileged == nullptr) {
         ResetDeviceBucketColor(*dPrivileged);
     } else if (dPrivileged == nullptr) {
-        ResetWireBucketColor(*wPrivileged);
+        ResetNetBucketColor(*wPrivileged);
     } else if (*dPrivileged > *wPrivileged) {
         ResetDeviceBucketColor(*dPrivileged);
     } else {
-        ResetWireBucketColor(*wPrivileged);
+        ResetNetBucketColor(*wPrivileged);
     }
     AssignBuckets();
 }
@@ -485,25 +485,25 @@ void CompareCell::ResetDeviceBucketColor(DeviceBucket& bucket) {
     // deviceElement1->newColor = deviceElement2->newColor = rand() % HASH_MOD_1;
 }
 
-void CompareCell::ResetWireBucketColor(WireBucket& bucket) {
-    std::shared_ptr<WireElement> wireElement1 = nullptr, wireElement2 = nullptr;
-    for (const std::shared_ptr<WireElement> wireElement : bucket.graphNodes) {
-        if (wireElement->netlistId == NETLIST_1) {
-            if (wireElement1 == nullptr) {
-                wireElement1 = wireElement;
-                if (wireElement2 != nullptr) {
+void CompareCell::ResetNetBucketColor(NetBucket& bucket) {
+    std::shared_ptr<NetElement> netElement1 = nullptr, netElement2 = nullptr;
+    for (const std::shared_ptr<NetElement> netElement : bucket.graphNodes) {
+        if (netElement->netlistId == NETLIST_1) {
+            if (netElement1 == nullptr) {
+                netElement1 = netElement;
+                if (netElement2 != nullptr) {
                     break;
                 }
             }
         } else {
-            if (wireElement2 == nullptr) {
-                wireElement2 = wireElement;
-                if (wireElement1 != nullptr) {
+            if (netElement2 == nullptr) {
+                netElement2 = netElement;
+                if (netElement1 != nullptr) {
                     break;
                 }
             }
         }
     }
-    wireElement1->newColor = wireElement2->newColor = rand();
-    // wireElement1->newColor = wireElement2->newColor = rand() % HASH_MOD_1;
+    netElement1->newColor = netElement2->newColor = rand();
+    // netElement1->newColor = netElement2->newColor = rand() % HASH_MOD_1;
 }

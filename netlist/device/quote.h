@@ -11,7 +11,7 @@ public:
     Quote& operator= (const Quote&) = delete;
 
     std::vector<std::string> _tokens;
-    std::vector<std::shared_ptr<Net>> _pendingWires;
+    std::vector<std::shared_ptr<Net>> _pendingNets;
 
     std::shared_ptr<Cell> GetQuoteCell() const;
     void SetQuoteCell(const std::shared_ptr<Cell>& cell);

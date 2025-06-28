@@ -301,22 +301,22 @@ READ_STATE Spice::ReadM()
     if (!SkipToNextToken()) {
         return READ_MOSFET_ERROR;
     }
-    drain = _nowCell->DefineWire(_nextToken);
+    drain = _nowCell->DefineNet(_nextToken);
 
     if (!SkipToNextToken()) {
         return READ_MOSFET_ERROR;
     }
-    gate = _nowCell->DefineWire(_nextToken);
+    gate = _nowCell->DefineNet(_nextToken);
 
     if (!SkipToNextToken()) {
         return READ_MOSFET_ERROR;
     }
-    source = _nowCell->DefineWire(_nextToken);
+    source = _nowCell->DefineNet(_nextToken);
 
     if (!SkipToNextToken()) {
         return READ_MOSFET_ERROR;
     }
-    bulk = _nowCell->DefineWire(_nextToken);
+    bulk = _nowCell->DefineNet(_nextToken);
 
     if (!SkipToNextToken()) {
         return READ_MOSFET_ERROR;
@@ -333,10 +333,10 @@ READ_STATE Spice::ReadM()
     device->SetNetlist(_netlist);
     device->SetModel(model);
 
-    device->AddConnectWire(drain, pinMagicTable[DEVICE_TYPE_MOSFET][0]);
-    device->AddConnectWire(gate, pinMagicTable[DEVICE_TYPE_MOSFET][1]);
-    device->AddConnectWire(source, pinMagicTable[DEVICE_TYPE_MOSFET][2]);
-    device->AddConnectWire(bulk, pinMagicTable[DEVICE_TYPE_MOSFET][3]);
+    device->AddConnectNet(drain, pinMagicTable[DEVICE_TYPE_MOSFET][0]);
+    device->AddConnectNet(gate, pinMagicTable[DEVICE_TYPE_MOSFET][1]);
+    device->AddConnectNet(source, pinMagicTable[DEVICE_TYPE_MOSFET][2]);
+    device->AddConnectNet(bulk, pinMagicTable[DEVICE_TYPE_MOSFET][3]);
 
     while (SkipToNextToken()) {
         // parse parameter

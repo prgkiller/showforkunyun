@@ -229,11 +229,11 @@ void CompareNetlist::AtomizeCell(const std::shared_ptr<CellElement>& cellElement
         }
     }
 
-    // clear wires which are not connect device.
-    for (const auto& it : cell->GetWires()) {
-        const std::shared_ptr<Net>& wire = it.second;
-        if (wire->GetConnectDevices().empty()) {
-            cell->GetWires().erase(wire->GetName());
+    // clear nets which are not connect device.
+    for (const auto& it : cell->GetNets()) {
+        const std::shared_ptr<Net>& net = it.second;
+        if (net->GetConnectDevices().empty()) {
+            cell->GetNets().erase(net->GetName());
         }
     }
 
@@ -251,7 +251,7 @@ void CompareNetlist::FlattenOneQuote(const std::shared_ptr<CellElement>& cellEle
     const std::shared_ptr<Cell>& sonCell = quote->GetQuoteCell();  // down cell
 
     std::unordered_map<std::shared_ptr<Device>, std::shared_ptr<Device>> copiedDevices;  // key:son, value:parent
-    std::unordered_map<std::shared_ptr<Net>, std::shared_ptr<Net>> copiedWires;  // key:son, value:parent
+    std::unordered_map<std::shared_ptr<Net>, std::shared_ptr<Net>> copiedNets;  // key:son, value:parent
 
     // copy down devices to up
     for (const auto& it : sonCell->GetDevices()) {
@@ -263,37 +263,37 @@ void CompareNetlist::FlattenOneQuote(const std::shared_ptr<CellElement>& cellEle
         copiedDevices[sonDevice] = parentDevice;
     }
 
-    for (const auto& itWire : sonCell->GetWires()) {
-        const std::shared_ptr<Net>& sonWire = itWire.second;
-        // std::cout << "When flatten(" << parentCell->GetName() << "," << quote->GetName() << "), sonWire " << sonWire->GetName() << " is check now." << std::endl;
-        std::shared_ptr<Net> parentWire = nullptr;
-        const PORT_INDEX portIndex = sonWire->GetPortIndex();
+    for (const auto& itNet : sonCell->GetNets()) {
+        const std::shared_ptr<Net>& sonNet = itNet.second;
+        // std::cout << "When flatten(" << parentCell->GetName() << "," << quote->GetName() << "), sonNet " << sonNet->GetName() << " is check now." << std::endl;
+        std::shared_ptr<Net> parentNet = nullptr;
+        const PORT_INDEX portIndex = sonNet->GetPortIndex();
         if (portIndex == NOT_PORT) {
-            // copy wire
-            const WIRE_NAME& parentWireName = quote->GetName() + '/' + sonCell->GetName() + ':' + sonWire->GetName();
-            parentWire = parentCell->DefineWire(parentWireName);
+            // copy net
+            const WIRE_NAME& parentNetName = quote->GetName() + '/' + sonCell->GetName() + ':' + sonNet->GetName();
+            parentNet = parentCell->DefineNet(parentNetName);
         } else {
-            parentWire = quote->_pendingWires[portIndex];  // find parent wire
+            parentNet = quote->_pendingNets[portIndex];  // find parent net
             // merge
-            for (const auto& itDevice : sonWire->GetConnectDevices()) {
+            for (const auto& itDevice : sonNet->GetConnectDevices()) {
                 const std::shared_ptr<Device>& sonDevice = itDevice.first.lock();
                 const PIN_MAGIC pinMagic = itDevice.second;
                 const std::shared_ptr<Device>& parentDevice = copiedDevices[sonDevice];
-                // parentWire->AddConnectDevice(parentDevice, pinMagic);
+                // parentNet->AddConnectDevice(parentDevice, pinMagic);
             }
         }
-        copiedWires[sonWire] = parentWire;
+        copiedNets[sonNet] = parentNet;
     }
 
-    // connect devices and wires.
+    // connect devices and nets.
     for (const auto& itPairs : copiedDevices) {
         const std::shared_ptr<Device>& sonDevice = itPairs.first;
         const std::shared_ptr<Device>& parentDevice = itPairs.second;
-        for (const auto& itWire : sonDevice->GetConnectWires()) {
-            const std::shared_ptr<Net>& sonWire = itWire.first;
-            const PIN_MAGIC pinMagic = itWire.second;
-            const std::shared_ptr<Net>& parentWire = copiedWires[sonWire];
-            parentDevice->AddConnectWire(parentWire, pinMagic);
+        for (const auto& itNet : sonDevice->GetConnectNets()) {
+            const std::shared_ptr<Net>& sonNet = itNet.first;
+            const PIN_MAGIC pinMagic = itNet.second;
+            const std::shared_ptr<Net>& parentNet = copiedNets[sonNet];
+            parentDevice->AddConnectNet(parentNet, pinMagic);
         }
     }
 
@@ -311,10 +311,10 @@ void CompareNetlist::QuoteToBeDevice(const std::shared_ptr<Quote>& quote) const
 
     quote->SetModel(quoteCellElement->label);
 
-    for (size_t index = 0; index < quote->_pendingWires.size(); ++index) {
-        const std::shared_ptr<Net>& wire = quote->_pendingWires[index];
+    for (size_t index = 0; index < quote->_pendingNets.size(); ++index) {
+        const std::shared_ptr<Net>& net = quote->_pendingNets[index];
         const PIN_MAGIC& pinMagic = quoteCell->GetPorts()[index]->GetLabel();
-        quote->AddConnectWire(wire, pinMagic);
+        quote->AddConnectNet(net, pinMagic);
     }
 }
 
@@ -336,10 +336,10 @@ void CompareNetlist::DealCompareCellsTrue(const std::unique_ptr<CompareCell>& co
             result += deviceElement->oldColor * deviceElement->newColor;
             // result %= HASH_MOD_1;
         }
-        for (const auto& itWire : compareCell->_wireBuckets[lastBucketsId]) {
-            const std::shared_ptr<CompareCell::WireElement>& wireElement = itWire.first;
-            // result += wireElement->oldColor * wireElement->newColor % HASH_MOD_1;
-            result += wireElement->oldColor * wireElement->newColor;
+        for (const auto& itNet : compareCell->_netBuckets[lastBucketsId]) {
+            const std::shared_ptr<CompareCell::NetElement>& netElement = itNet.first;
+            // result += netElement->oldColor * netElement->newColor % HASH_MOD_1;
+            result += netElement->oldColor * netElement->newColor;
             // result %= HASH_MOD_1;
         }
         return std::to_string(result);
@@ -348,11 +348,11 @@ void CompareNetlist::DealCompareCellsTrue(const std::unique_ptr<CompareCell>& co
     auto SetPortsLabel = [&compareCell](const std::shared_ptr<CellElement>& cellElement) -> void {
         const std::shared_ptr<Cell>& cell = cellElement->cell;
         for (const auto& port : cell->GetPorts()) {
-            const std::shared_ptr<Net>& wire = port->GetWire();
-            if (wire != nullptr) {
-                const std::shared_ptr<CompareCell::WireElement>& wireElement = compareCell->_wires[wire];
-                // port->SetLabel(wireElement->oldColor * wireElement->newColor % HASH_MOD_1);
-                port->SetLabel(wireElement->oldColor * wireElement->newColor);
+            const std::shared_ptr<Net>& net = port->GetNet();
+            if (net != nullptr) {
+                const std::shared_ptr<CompareCell::NetElement>& netElement = compareCell->_nets[net];
+                // port->SetLabel(netElement->oldColor * netElement->newColor % HASH_MOD_1);
+                port->SetLabel(netElement->oldColor * netElement->newColor);
             } else {
                 port->SetLabel(static_cast<HASH_VALUE>(0));  // open circuit
             }

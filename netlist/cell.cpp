@@ -29,8 +29,8 @@ std::unordered_map<DEVICE_NAME, std::shared_ptr<Device>, StringCaseInsensitiveHa
     return _devices;
 }
 
-std::unordered_map<WIRE_NAME, std::shared_ptr<Net>, StringCaseInsensitiveHash, StringCaseInsensitiveEqual>& Cell::GetWires() {
-    return _wires;
+std::unordered_map<WIRE_NAME, std::shared_ptr<Net>, StringCaseInsensitiveHash, StringCaseInsensitiveEqual>& Cell::GetNets() {
+    return _nets;
 }
 
 std::unordered_map<PARAMETER_NAME, PARAMETER_VALUE, StringCaseInsensitiveHash, StringCaseInsensitiveEqual>& Cell::GetParameters() {
@@ -45,9 +45,9 @@ std::shared_ptr<Device> Cell::FindDevice(const DEVICE_NAME& name) const {
     return it->second;
 }
 
-std::shared_ptr<Net> Cell::FindWire(const WIRE_NAME& name) const {
-    const auto& it = _wires.find(name);
-    if (it == _wires.end()) {
+std::shared_ptr<Net> Cell::FindNet(const WIRE_NAME& name) const {
+    const auto& it = _nets.find(name);
+    if (it == _nets.end()) {
         return nullptr;
     }
     return it->second;
@@ -63,29 +63,29 @@ bool Cell::AddDevice(const std::shared_ptr<Device>& device) {
     return true;
 }
 
-std::shared_ptr<Net> Cell::DefineWire(const WIRE_NAME& wireName) {
+std::shared_ptr<Net> Cell::DefineNet(const WIRE_NAME& netName) {
     // 如果未定义则新建，已定义则返回已有实例
-    const auto& it = _wires.find(wireName);
-    if (it != _wires.end()) {
+    const auto& it = _nets.find(netName);
+    if (it != _nets.end()) {
         return it->second;
     }
 
-    const std::shared_ptr<Net>& wire = std::make_shared<Net>(wireName);
-    wire->SetCell(shared_from_this());
-    wire->SetNetlist(_netlist.lock());
-    _wires[wireName] = wire;
+    const std::shared_ptr<Net>& net = std::make_shared<Net>(netName);
+    net->SetCell(shared_from_this());
+    net->SetNetlist(_netlist.lock());
+    _nets[netName] = net;
 
     // 检查是否为端口
-    const auto& itPort = _portsMap.find(wireName);
+    const auto& itPort = _portsMap.find(netName);
     if (itPort != _portsMap.end()) {
         const PORT_INDEX portIndex = itPort->second;
-        wire->SetPortIndex(portIndex);
+        net->SetPortIndex(portIndex);
 
         const std::shared_ptr<Port>& port = _ports[portIndex];
-        port->SetWire(wire);
+        port->SetNet(net);
     }
 
-    return wire;
+    return net;
 }
 
 void Cell::SetParameterValue(const PARAMETER_NAME& parameterName, const std::string& str) {
@@ -106,10 +106,10 @@ void Cell::Show() {
         std::cout << device->GetName() << ":";
 
         if (device->GetDeviceType() != DEVICE_TYPE_QUOTE) {
-            for (const auto& it2 : device->GetConnectWires()) {
-                const std::shared_ptr<Net>& wire = it2.first;
+            for (const auto& it2 : device->GetConnectNets()) {
+                const std::shared_ptr<Net>& net = it2.first;
                 const PIN_MAGIC pinMagic = it2.second;
-                std::cout << " " << wire->GetName() << "(" << GetPinName(pinMagic) << ")";
+                std::cout << " " << net->GetName() << "(" << GetPinName(pinMagic) << ")";
             }
 
             const auto properties = std::move(device->GetProperties());
@@ -125,18 +125,18 @@ void Cell::Show() {
             std::cout << std::endl;
         } else {
             const std::shared_ptr<Quote>& quote = std::dynamic_pointer_cast<Quote>(device);
-            for (const std::shared_ptr<Net>& wire : quote->_pendingWires) {
-                std::cout << " " << wire->GetName();
+            for (const std::shared_ptr<Net>& net : quote->_pendingNets) {
+                std::cout << " " << net->GetName();
             }
             std::cout << " [quote(" << quote->GetQuoteCell()->GetName() << ")]" << std::endl;
         }
     }
 
-    for (const auto& it : GetWires()) {
-        const std::shared_ptr<Net>& wire = it.second;
-        std::cout << wire->GetName() << ":";
+    for (const auto& it : GetNets()) {
+        const std::shared_ptr<Net>& net = it.second;
+        std::cout << net->GetName() << ":";
 
-        for (const auto& it2 : wire->GetConnectDevices()) {
+        for (const auto& it2 : net->GetConnectDevices()) {
             const std::shared_ptr<Device>& device = it2.first.lock();
             const PIN_MAGIC pinMagic = it2.second;
             std::cout << " " << device->GetName() << "(" << GetPinName(pinMagic) << ")";
