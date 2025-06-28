@@ -270,7 +270,7 @@ void CompareNetlist::FlattenOneQuote(const std::shared_ptr<CellElement>& cellEle
         const PORT_INDEX portIndex = sonNet->GetPortIndex();
         if (portIndex == NOT_PORT) {
             // copy net
-            const WIRE_NAME& parentNetName = quote->GetName() + '/' + sonCell->GetName() + ':' + sonNet->GetName();
+            const NET_NAME& parentNetName = quote->GetName() + '/' + sonCell->GetName() + ':' + sonNet->GetName();
             parentNet = parentCell->DefineNet(parentNetName);
         } else {
             parentNet = quote->_pendingNets[portIndex];  // find parent net

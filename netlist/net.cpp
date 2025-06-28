@@ -1,11 +1,11 @@
 #include <list>
 #include "net.h"
 
-Net::Net(const WIRE_NAME& name) : _name(name) {
+Net::Net(const NET_NAME& name) : _name(name) {
     _portIndex = NOT_PORT;
 }
 
-WIRE_NAME Net::GetName() const {
+NET_NAME Net::GetName() const {
     return _name;
 }
 

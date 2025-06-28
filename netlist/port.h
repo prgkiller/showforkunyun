@@ -6,11 +6,11 @@
 class Net;
 class Port {
 private:
-    WIRE_NAME _name;
+    NET_NAME _name;
     std::shared_ptr<Net> _net;
     HASH_VALUE _label; // have label after compare true
 public:
-    explicit Port(const WIRE_NAME& name);
+    explicit Port(const NET_NAME& name);
     Port(const Port&) = delete;
     Port& operator=(const Port&) = delete;
 

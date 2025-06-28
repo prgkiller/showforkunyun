@@ -12,7 +12,7 @@
 
 typedef std::string CELL_NAME;
 typedef std::string DEVICE_NAME;
-typedef std::string WIRE_NAME;
+typedef std::string NET_NAME;
 typedef std::string DEVICE_MODEL_NAME;
 typedef std::string PROPERTY_NAME;
 typedef std::variant<double, std::string> PROPERTY_VALUE;

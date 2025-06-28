@@ -276,7 +276,7 @@ READ_STATE Spice::ReadSubckt()
     }
 
     while (SkipToNextToken()) {
-        WIRE_NAME portName = std::move(_nextToken);
+        NET_NAME portName = std::move(_nextToken);
 
         if (_nowCell->_portsMap.find(portName) != _nowCell->_portsMap.end()) {
             // redefine port name in the same subckt

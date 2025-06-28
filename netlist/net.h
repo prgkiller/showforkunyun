@@ -11,18 +11,18 @@ class Device;
 
 class Net {
 private:
-    WIRE_NAME _name;
+    NET_NAME _name;
     std::weak_ptr<Cell> _cell;
     std::weak_ptr<Netlist> _netlist;
 
     PORT_INDEX _portIndex = NOT_PORT;
     std::list<std::pair<std::weak_ptr<Device>, PIN_MAGIC> > _connectDevices;
 public:
-    Net(const WIRE_NAME& name);
+    Net(const NET_NAME& name);
     Net(const Net&) = delete;
     Net& operator=(const Net&) = delete;
 
-    WIRE_NAME GetName() const;
+    NET_NAME GetName() const;
 
     std::shared_ptr<Cell> GetCell() const;
     void SetCell(const std::shared_ptr<Cell>& cell);

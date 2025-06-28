@@ -1,6 +1,6 @@
 #include "port.h"
 
-Port::Port(const WIRE_NAME& name)
+Port::Port(const NET_NAME& name)
     : _name(name), _net(nullptr) {
 }
 

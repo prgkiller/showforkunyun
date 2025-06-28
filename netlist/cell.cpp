@@ -29,7 +29,7 @@ std::unordered_map<DEVICE_NAME, std::shared_ptr<Device>, StringCaseInsensitiveHa
     return _devices;
 }
 
-std::unordered_map<WIRE_NAME, std::shared_ptr<Net>, StringCaseInsensitiveHash, StringCaseInsensitiveEqual>& Cell::GetNets() {
+std::unordered_map<NET_NAME, std::shared_ptr<Net>, StringCaseInsensitiveHash, StringCaseInsensitiveEqual>& Cell::GetNets() {
     return _nets;
 }
 
@@ -45,7 +45,7 @@ std::shared_ptr<Device> Cell::FindDevice(const DEVICE_NAME& name) const {
     return it->second;
 }
 
-std::shared_ptr<Net> Cell::FindNet(const WIRE_NAME& name) const {
+std::shared_ptr<Net> Cell::FindNet(const NET_NAME& name) const {
     const auto& it = _nets.find(name);
     if (it == _nets.end()) {
         return nullptr;
@@ -63,7 +63,7 @@ bool Cell::AddDevice(const std::shared_ptr<Device>& device) {
     return true;
 }
 
-std::shared_ptr<Net> Cell::DefineNet(const WIRE_NAME& netName) {
+std::shared_ptr<Net> Cell::DefineNet(const NET_NAME& netName) {
     // 如果未定义则新建，已定义则返回已有实例
     const auto& it = _nets.find(netName);
     if (it != _nets.end()) {
