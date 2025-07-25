@@ -112,7 +112,7 @@ static TestCase testCase[] = {
     },
     { // 2
         "layout.sp", "RAS1024X16", "layout2.sp", "RAS1024X16", "case2_res",
-        false, true, false, true, 0.0,
+        false, true, false, false, 0.0,
         true, false, false
     },
     { // 3

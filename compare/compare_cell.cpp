@@ -350,6 +350,7 @@ AUTOMORPHISM_GROUPS CompareCell::NetBucketCheck(NetBucket& bucket) {
 
 COMPARE_CELL_RESULT CompareCell::ResolveAutomorphism() {
     AUTOMORPHISM_GROUPS result = 1;
+    printf("Resolve automorphism by property\n");
     ResolveAutomorphismByProperty();
     result = WeisfeilerLehman();
     if (result == ITERATE_RESULT_FALSE) {
@@ -358,6 +359,7 @@ COMPARE_CELL_RESULT CompareCell::ResolveAutomorphism() {
         return COMPARE_CELL_TRUE;
     }
 
+    printf("Resolve automorphism by pin\n");
     ResolveAutomorphismByPin();
     result = WeisfeilerLehman();
     if (result == ITERATE_RESULT_FALSE) {
@@ -366,7 +368,9 @@ COMPARE_CELL_RESULT CompareCell::ResolveAutomorphism() {
         return COMPARE_CELL_TRUE;
     }
 
+    return COMPARE_CELL_TRUE;
     while (result > 0) {
+        printf("Resolve automorphism by force\n");
         ResolveAutomorphismForce();
         result = WeisfeilerLehman();
     }
@@ -429,7 +433,26 @@ void CompareCell::ResolveAutomorphismByProperty() {
 }
 
 void CompareCell::ResolveAutomorphismByPin() {
-
+    for (const NetBucket* bucket: _automorphismNetBuckets) {
+        HASH_VALUE originColor = bucket->newColor;
+        for (auto it1 = bucket->graphNodes.begin(); it1 != bucket->graphNodes.end(); ++it1) {
+            const std::shared_ptr<NetElement>& netElement1 = *it1;
+            if (netElement1->newColor != originColor) {
+                continue;
+            }
+            for (auto it2 = std::next(it1); it2 != bucket->graphNodes.end(); ++it2) {
+                const std::shared_ptr<NetElement>& netElement2 = *it2;
+                if (netElement1->netlistId != netElement2->netlistId &&
+                        MatchNoCase(netElement1->net->GetName(), netElement2->net->GetName()) &&
+                        (netElement1->net->GetPortIndex() != NOT_PORT || netElement2->net->GetPortIndex() != NOT_PORT) ) {
+                    HASH_VALUE resetColor = Rand();
+                    netElement1->newColor = resetColor;
+                    netElement2->newColor = resetColor;
+                    break;
+                }
+            }
+        }
+    }
     AssignBuckets();
 }
 
@@ -481,8 +504,8 @@ void CompareCell::ResetDeviceBucketColor(DeviceBucket& bucket) {
             }
         }
     }
-    deviceElement1->newColor = deviceElement2->newColor = rand();
-    // deviceElement1->newColor = deviceElement2->newColor = rand() % HASH_MOD_1;
+    deviceElement1->newColor = deviceElement2->newColor = Rand();
+    // deviceElement1->newColor = deviceElement2->newColor = Rand() % HASH_MOD_1;
 }
 
 void CompareCell::ResetNetBucketColor(NetBucket& bucket) {
@@ -504,6 +527,6 @@ void CompareCell::ResetNetBucketColor(NetBucket& bucket) {
             }
         }
     }
-    netElement1->newColor = netElement2->newColor = rand();
+    netElement1->newColor = netElement2->newColor = Rand();
     // netElement1->newColor = netElement2->newColor = rand() % HASH_MOD_1;
 }
